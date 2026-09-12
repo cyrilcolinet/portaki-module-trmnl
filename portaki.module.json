@@ -19,9 +19,15 @@
   "type": "community",
   "maturity": "beta",
   "license": "MIT",
-  "permissions": ["kv", "connectors:trmnl"],
+  "permissions": [
+    "kv",
+    "connectors:trmnl"
+  ],
   "sortOrder": 620,
   "audience": "host",
+  "hostScheduledSync": {
+    "hostAction": "pushNow"
+  },
   "hostSurfaces": [
     {
       "type": "property-module-sheet",

@@ -36,10 +36,12 @@ change it without republishing a module. `templates/` holds a starting point for
 | `updateConfig` | Saving settings repaints the screen, so Save is visibly what it claims to be |
 | `pushNow` | The button on the settings sheet |
 | `core.booking.confirmed` | A confirmed booking is the one moment a screen is certainly stale |
+| the scheduled sync | A countdown drawn yesterday is wrong this morning, with nothing happening to say so |
 
-There is no periodic push. `hostScheduledSync` without `platformFetch` runs the *legacy Java host
-backend*, not a wasm command, and its `platformFetch` variant only fetches URLs — neither one can
-drive an outbound POST from a wasm module today. See [Limitations](#limitations).
+The schedule is `hostScheduledSync: { hostAction: "pushNow" }` — the platform runs the module's
+own command, on its cadence and on demand. It reaches a wasm module only where the platform
+dispatches a host action as a command ([portaki-platform#294](https://github.com/PortakiApp/portaki-platform/issues/294));
+before that, the declaration is inert rather than wrong.
 
 ## Merge variables
 
@@ -101,16 +103,15 @@ budget.
 
 ## Limitations
 
-Compared with the original TypeScript module, three things cannot be expressed on SDK 3.2.0:
-
-- **No guest name, Wi-Fi credentials, or door code.** The old module received them in an event
-  map enriched by the host. A wasm module reads the property it runs for and the stay it was
-  handed — there is no host operation that reads bookings or other modules' settings.
-- **No periodic refresh.** See [When it sends](#when-it-sends).
+- **No guest name, Wi-Fi credentials, or door code.** The old TypeScript module received them in
+  an event map enriched by the host. A wasm module reads the property it runs for and the stay it
+  was handed — there is no host operation that reads bookings or other modules' settings.
 - **The connector needs a credential to exist.** The runtime requires a non-blank token for every
   connector call, even with `auth = "none"` (`connector_credential_missing`). Until that check
-  skips `none`, a `trmnl` credential provider has to be registered orchestrator-side and bound for
-  the workspace.
+  skips `none` ([portaki-platform#293](https://github.com/PortakiApp/portaki-platform/issues/293)),
+  a `trmnl` credential provider has to be registered orchestrator-side and bound for the workspace.
+- **The rate limit is per property.** Eleven pushes an hour is counted in this module's KV, which
+  is scoped to the property — two properties feeding one TRMNL device would each count their own.
 
 ## Development
 
