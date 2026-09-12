@@ -1,0 +1,35 @@
+{%- comment -%}
+  TRMNL Private Plugin — in-property guest display, full layout.
+
+  A screen a guest reads on their way in: where they are, and the two dates that matter. Times
+  are UTC as sent; format them here if your property sits far from it.
+{%- endcomment -%}
+<div class="layout layout--full">
+
+  <div class="label label--small">
+    {% if stay_active %}WELCOME{% else %}SEE YOU SOON{% endif %}
+  </div>
+  <div class="title" style="font-size: 32px; font-weight: 700; line-height: 1.1;">
+    {{ property_name }}
+  </div>
+
+  {% if checkin_date %}
+    <div style="display: flex; gap: 28px; margin-top: 24px;">
+      <div>
+        <div class="label label--small">ARRIVAL</div>
+        <div class="value value--medium">{{ checkin_date }}</div>
+        <div class="description">{{ checkin_time }}</div>
+      </div>
+      <div>
+        <div class="label label--small">DEPARTURE</div>
+        <div class="value value--medium">{{ checkout_date }}</div>
+        <div class="description">{{ checkout_time }}</div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div style="position: absolute; bottom: 12px; right: 12px;">
+    <span class="label label--small">updated {{ updated_time }} UTC</span>
+  </div>
+
+</div>

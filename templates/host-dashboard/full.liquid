@@ -1,0 +1,37 @@
+{%- comment -%}
+  TRMNL Private Plugin — host dashboard, full layout.
+
+  Paste this into the plugin's markup. Labels are yours to translate: the screen belongs to the
+  host, not to the module. Every variable below is one the module sends; anything missing simply
+  renders empty, so a property with no stay in sight still draws a clean screen.
+{%- endcomment -%}
+<div class="layout layout--full">
+
+  <div class="title" style="font-size: 30px; font-weight: 700; line-height: 1.1;">
+    {{ property_name }}
+  </div>
+
+  {% if stay_active %}
+    <div class="label label--small" style="margin-top: 18px;">CURRENT STAY</div>
+    <div class="value value--large">Until {{ checkout_date }} · {{ checkout_time }}</div>
+  {% elsif checkin_date %}
+    <div class="label label--small" style="margin-top: 18px;">NEXT STAY</div>
+    <div class="value value--large">{{ checkin_date }} · {{ checkin_time }}</div>
+    {% if next_stay_countdown_days %}
+      <div class="description" style="margin-top: 4px;">
+        in {{ next_stay_countdown_days }} day{% if next_stay_countdown_days != 1 %}s{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="label label--small" style="margin-top: 18px;">NO STAY SCHEDULED</div>
+  {% endif %}
+
+  {% if booking_channel %}
+    <div class="description" style="margin-top: 12px;">via {{ booking_channel }}</div>
+  {% endif %}
+
+  <div style="position: absolute; bottom: 12px; right: 12px;">
+    <span class="label label--small">updated {{ updated_time }} UTC</span>
+  </div>
+
+</div>

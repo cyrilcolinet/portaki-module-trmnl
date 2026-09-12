@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/PortakiApp/portaki-sdk/main/schema/module.v1.json",
+  "id": "trmnl",
+  "name": {
+    "fr": "TRMNL ePaper",
+    "en": "TRMNL ePaper"
+  },
+  "description": {
+    "fr": "Affiche les informations du séjour sur un écran e-ink TRMNL.",
+    "en": "Shows stay information on a TRMNL e-ink screen."
+  },
+  "version": "0.1.0",
+  "author": {
+    "name": "Cyril Colinet",
+    "url": "https://github.com/cyrilcolinet",
+    "type": "community"
+  },
+  "icon": "Monitor",
+  "type": "community",
+  "maturity": "beta",
+  "license": "MIT",
+  "permissions": ["kv", "connectors:trmnl"],
+  "sortOrder": 620,
+  "audience": "host",
+  "hostSurfaces": [
+    {
+      "type": "property-module-sheet",
+      "pathSegment": "trmnl",
+      "label": {
+        "fr": "Écran TRMNL",
+        "en": "TRMNL screen"
+      },
+      "icon": "Monitor"
+    },
+    {
+      "type": "property-stats-card",
+      "pathSegment": "status",
+      "label": {
+        "fr": "Écran TRMNL",
+        "en": "TRMNL screen"
+      },
+      "icon": "Monitor"
+    }
+  ]
+}
