@@ -142,3 +142,37 @@ fn the_status_card_admits_when_nothing_was_ever_sent() {
             assert!(json.contains("i18n:stats.notConfigured"));
         });
 }
+
+/// Un tiers qui refuse : c'est là que le registre du module se lit.
+#[test]
+#[serial]
+fn a_refused_push_is_recorded_without_spending_the_budget() {
+    MockContext::host()
+        .with_capabilities(&[capability::core::STORAGE])
+        .with_connector_error("trmnl", "push", "connector_credential_missing")
+        .run_with(|ctx, host| {
+            update_config(ctx.clone(), configured()).expect("updateConfig");
+
+            let outcome = push_now(ctx.clone(), EmptyArgs::default()).expect("pushNow");
+            assert!(!outcome.ok);
+            assert!(outcome.status.contains("connector_credential_missing"));
+
+            let status = get_status(ctx).expect("getStatus");
+            assert!(
+                status.push.recent.is_empty(),
+                "a refused push spent the hourly budget"
+            );
+            assert!(status
+                .push
+                .last_status
+                .as_deref()
+                .unwrap_or_default()
+                .contains("connector_credential_missing"));
+
+            // Ce qui est parti, et pas seulement qu'il soit parti.
+            let calls = host.connector_calls();
+            assert_eq!(calls.len(), 2, "one per push attempt, save included");
+            assert!(calls[0].args_json.contains("\"plugin_id\":\"7f1c-42\""));
+            assert!(calls[0].args_json.contains("Chez Marie"));
+        });
+}
