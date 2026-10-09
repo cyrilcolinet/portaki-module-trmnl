@@ -33,7 +33,7 @@ change it without republishing a module. `templates/` holds a starting point for
 
 | Trigger | Why |
 |---|---|
-| `updateConfig` | Saving settings repaints the screen, so Save is visibly what it claims to be |
+| `onConfigUpdated` | Saving settings repaints the screen, so Save is visibly what it claims to be |
 | `pushNow` | The button on the settings sheet |
 | `core.booking.confirmed` | A confirmed booking is the one moment a screen is certainly stale |
 | the scheduled sync | A countdown drawn yesterday is wrong this morning, with nothing happening to say so |
