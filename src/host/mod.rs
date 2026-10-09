@@ -7,13 +7,20 @@ use portaki_sdk::sdui::primitives::{
 };
 use portaki_sdk::sdui::surface::Surface;
 
-use crate::config::{load_config, DisplayMode};
+use crate::config::{DisplayMode, ModuleConfig};
 use crate::ids;
 use crate::push::load_state;
 
+// « Écran TRMNL injoignable depuis 6 h » dans À venir : `crate::tasks`.
+#[portaki_sdk::nav(
+    placement = HostPlacement::WorkspaceTimelineTask,
+    path = "tasks",
+    label_key = "catalog.host.tasks",
+    icon = IconName::DangerTriangle
+)]
 #[portaki_sdk::surface(host, id = "main", placement = HostPlacement::PropertyModuleSheet)]
-pub fn render_host_main(ctx: HostContext) -> Surface {
-    let config = load_config().unwrap_or_default();
+pub fn render_host_main(ctx: HostContext) -> Result<Surface> {
+    let config = ModuleConfig::load(&ctx)?;
     let problems = config.problems();
     // Le champ, avec le message de `problems` sous lui s'il y en a un. Une URL encore vide
     // n'est pas une faute à souligner : c'est le tiroir qu'on ouvre pour la première fois.
@@ -44,7 +51,8 @@ pub fn render_host_main(ctx: HostContext) -> Surface {
                     .child(
                         SecretInput::new()
                             .name("webhook_url")
-                            .value(config.webhook_url.clone())
+                            // Never sent back: blank keeps the saved URL.
+                            .value(String::new())
                             .placeholder("i18n:host.webhookUrl.placeholder"),
                     )
                     .into(),
@@ -103,11 +111,13 @@ pub fn render_host_main(ctx: HostContext) -> Surface {
             .into(),
     );
     children.push(FieldHint::new().text("i18n:host.main.help").into());
-    children.push(status_card());
+    children.push(status_card(&config));
 
     // No Page title / Save — the modules sheet owns chrome + footer Save.
-    Surface::new(Page::new().child(Form::new().child(Stack::new().gap(16.0).children(children))))
-        .with_id(MAIN)
+    Ok(Surface::new(
+        Page::new().child(Form::new().child(Stack::new().gap(16.0).children(children))),
+    )
+    .with_id(MAIN))
 }
 
 /// L'état de l'écran, dans le tiroir : s'il est alimenté, et ce qu'a donné le dernier envoi.
@@ -115,8 +125,7 @@ pub fn render_host_main(ctx: HostContext) -> Surface {
 /// Dans le tiroir et non en tuile de statistiques : la spec n'en prévoit pas pour TRMNL, et
 /// c'est là que l'hôte vient vérifier après « Envoyer maintenant ». Des `KeyValue` et non des
 /// champs : un champ nommé partirait avec le formulaire à l'enregistrement.
-pub fn status_card() -> Component {
-    let config = load_config().unwrap_or_default();
+pub fn status_card(config: &ModuleConfig) -> Component {
     let state = load_state().unwrap_or_default();
 
     let mode = if config.is_ready() {

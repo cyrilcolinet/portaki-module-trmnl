@@ -6,7 +6,7 @@ use portaki_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::config::{load_config, ModuleConfig};
+use crate::config::ModuleConfig;
 use crate::payload::{build_payload, StaySnapshot};
 
 const STATE_KEY: &str = "push_state";
@@ -31,6 +31,10 @@ pub struct PushState {
     /// `ok`, `rate_limited`, `not_configured`, or the runtime's own failure reason.
     #[serde(default)]
     pub last_status: Option<String>,
+    /// When pushes started failing, cleared by the next one that lands. `last_push_at` moves on
+    /// every attempt, so it cannot say how long the screen has been out of reach.
+    #[serde(default)]
+    pub failing_since: Option<String>,
 }
 
 impl PushState {
@@ -47,6 +51,14 @@ impl PushState {
         }
         self.last_push_at = Some(now.to_rfc3339());
         self.last_status = Some(status.to_string());
+        match status {
+            "ok" | "not_configured" => self.failing_since = None,
+            // Held back by this module, not refused by TRMNL: says nothing about the screen.
+            "rate_limited" => {}
+            _ => {
+                self.failing_since.get_or_insert_with(|| now.to_rfc3339());
+            }
+        }
     }
 }
 
@@ -116,7 +128,7 @@ pub fn push_now(ctx: &Context, trigger: &str) -> PushOutcome {
 }
 
 fn try_push(ctx: &Context, trigger: &str) -> Result<PushOutcome> {
-    let config = load_config()?;
+    let config = ModuleConfig::load(ctx)?;
     let Some(plugin_id) = plugin_id_from_webhook_url(&config.webhook_url) else {
         return finish(&config, "not_configured", false);
     };
@@ -258,5 +270,20 @@ mod tests {
             state.last_push_at.as_deref(),
             Some("2026-09-12T10:00:00+00:00")
         );
+    }
+
+    #[test]
+    fn failing_since_holds_the_first_failure_until_a_push_lands() {
+        let mut state = PushState::default();
+        state.record(at("2026-09-12T10:00:00Z"), "http_502", false);
+        state.record(at("2026-09-12T11:00:00Z"), "rate_limited", false);
+        state.record(at("2026-09-12T12:00:00Z"), "http_502", false);
+        assert_eq!(
+            state.failing_since.as_deref(),
+            Some("2026-09-12T10:00:00+00:00")
+        );
+
+        state.record(at("2026-09-12T13:00:00Z"), "ok", true);
+        assert_eq!(state.failing_since, None);
     }
 }
