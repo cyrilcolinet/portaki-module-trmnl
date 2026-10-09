@@ -27,5 +27,7 @@
   "stats.notConfigured": "Aucune URL de webhook",
   "stats.status.ok": "Envoyé",
   "stats.status.rateLimited": "Limite horaire atteinte",
-  "stats.status.idle": "Rien envoyé pour l'instant"
+  "stats.status.idle": "Rien envoyé pour l'instant",
+  "host.webhookUrl.invalid": "Collez l'URL webhook de votre Private Plugin TRMNL.",
+  "host.propertyName.tooLong": "30 caractères au maximum."
 }

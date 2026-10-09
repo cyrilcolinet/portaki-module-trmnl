@@ -31,3 +31,28 @@ pub fn get_status(_ctx: Context) -> Result<ModuleStatus> {
         push: load_state()?,
     })
 }
+
+/// Ce qui bloque la publication : une URL qui n'est pas celle d'un Private Plugin TRMNL, un nom
+/// affiché trop long — chacun sur son champ (`config.<clé>`).
+#[portaki_sdk::query(name = "publishReadiness")]
+pub fn publish_readiness(
+    _ctx: Context,
+) -> Result<portaki_sdk::contracts::publish::PublishReadiness> {
+    use portaki_sdk::contracts::publish::{PublishCheck, PublishLevel, PublishReadiness};
+    let bundle = crate::i18n::text;
+    let items = load_config()?
+        .problems()
+        .into_iter()
+        .map(|(field, key)| PublishCheck {
+            id: format!("config.{field}"),
+            level: PublishLevel::Required,
+            ok: false,
+            label: bundle(match field {
+                "webhook_url" => "host.webhookUrl.label",
+                _ => "host.propertyName.label",
+            }),
+            hint: bundle(key),
+        })
+        .collect();
+    Ok(PublishReadiness { items })
+}

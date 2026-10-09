@@ -2,7 +2,7 @@
 
 use portaki_sdk::prelude::*;
 use portaki_sdk::sdui::primitives::{
-    Button, Card, Field, FieldHint, Form, InfoBanner, Page, SecretInput, Select, Stack, Text,
+    Button, Card, Field, FieldHint, Form, InfoBanner, KeyValue, Page, SecretInput, Select, Stack,
     TextInput,
 };
 use portaki_sdk::sdui::surface::Surface;
@@ -11,10 +11,23 @@ use crate::config::{load_config, DisplayMode};
 use crate::ids;
 use crate::push::load_state;
 
-#[portaki_sdk::surface(host, id = "main")]
-pub fn render_host_main(_ctx: HostContext) -> Surface {
+#[portaki_sdk::surface(host, id = "main", placement = HostPlacement::PropertyModuleSheet)]
+pub fn render_host_main(ctx: HostContext) -> Surface {
     let config = load_config().unwrap_or_default();
-    let push_action = ids::module_id().command_empty(ids::PUSH_NOW);
+    let problems = config.problems();
+    // Le champ, avec le message de `problems` sous lui s'il y en a un. Une URL encore vide
+    // n'est pas une faute à souligner : c'est le tiroir qu'on ouvre pour la première fois.
+    let named = |name: &str| {
+        let field = Field::new().name(name);
+        let blank = name == "webhook_url" && config.webhook_url.trim().is_empty();
+        match problems.iter().find(|(field, _)| *field == name) {
+            Some((_, key)) if !blank => {
+                field.error(crate::i18n::text(key).get(&ctx.locale).to_string())
+            }
+            _ => field,
+        }
+    };
+    let push_action = ids::module_id().command_empty(crate::commands::PUSH_NOW);
 
     let form_children: Vec<Component> = vec![
         InfoBanner::new()
@@ -24,10 +37,9 @@ pub fn render_host_main(_ctx: HostContext) -> Surface {
         Card::new()
             .title("i18n:host.section.plugin")
             .subtitle("i18n:host.section.plugin.help")
-            .icon("Link")
+            .icon(IconName::Link)
             .children(vec![
-                Field::new()
-                    .name("webhook_url")
+                named("webhook_url")
                     .label("i18n:host.webhookUrl.label")
                     .child(
                         SecretInput::new()
@@ -42,7 +54,7 @@ pub fn render_host_main(_ctx: HostContext) -> Surface {
         Card::new()
             .title("i18n:host.section.screen")
             .subtitle("i18n:host.section.screen.help")
-            .icon("Grid")
+            .icon(IconName::Grid)
             .children(vec![
                 Field::new()
                     .name("display_mode")
@@ -63,8 +75,7 @@ pub fn render_host_main(_ctx: HostContext) -> Surface {
                             .value(config.display_mode.as_str()),
                     )
                     .into(),
-                Field::new()
-                    .name("property_name_override")
+                named("property_name_override")
                     .label("i18n:host.propertyName.label")
                     .child(
                         TextInput::new()
@@ -92,15 +103,19 @@ pub fn render_host_main(_ctx: HostContext) -> Surface {
             .into(),
     );
     children.push(FieldHint::new().text("i18n:host.main.help").into());
+    children.push(status_card());
 
     // No Page title / Save — the modules sheet owns chrome + footer Save.
     Surface::new(Page::new().child(Form::new().child(Stack::new().gap(16.0).children(children))))
-        .with_id(ids::HOST_MAIN)
+        .with_id(MAIN)
 }
 
-/// The stats strip: whether the screen is fed, and what the last attempt did.
-#[portaki_sdk::surface(host, id = "status")]
-pub fn render_host_status(_ctx: HostContext) -> Surface {
+/// L'état de l'écran, dans le tiroir : s'il est alimenté, et ce qu'a donné le dernier envoi.
+///
+/// Dans le tiroir et non en tuile de statistiques : la spec n'en prévoit pas pour TRMNL, et
+/// c'est là que l'hôte vient vérifier après « Envoyer maintenant ». Des `KeyValue` et non des
+/// champs : un champ nommé partirait avec le formulaire à l'enregistrement.
+pub fn status_card() -> Component {
     let config = load_config().unwrap_or_default();
     let state = load_state().unwrap_or_default();
 
@@ -124,30 +139,20 @@ pub fn render_host_status(_ctx: HostContext) -> Surface {
         Some(other) => other.to_string(),
     };
 
-    Surface::new(
-        Page::new().child(
-            Card::new()
-                .title("i18n:stats.title")
-                .subtitle("i18n:stats.subtitle")
-                .icon("Monitor")
-                .children(vec![
-                    Field::new()
-                        .name("display_mode")
-                        .label("i18n:stats.mode")
-                        .child(Text::new().text(mode).variant(TextVariant::Body))
-                        .into(),
-                    Field::new()
-                        .name("last_push_at")
-                        .label("i18n:stats.lastPush")
-                        .child(Text::new().text(last_push).variant(TextVariant::Caption))
-                        .into(),
-                    Field::new()
-                        .name("last_status")
-                        .label("i18n:stats.lastStatus")
-                        .child(Text::new().text(status).variant(TextVariant::Caption))
-                        .into(),
-                ]),
-        ),
-    )
-    .with_id(ids::HOST_STATUS)
+    Card::new()
+        .title("i18n:stats.title")
+        .subtitle("i18n:stats.subtitle")
+        .icon(IconName::Gauge)
+        .children(vec![
+            KeyValue::new().key("i18n:stats.mode").value(mode).into(),
+            KeyValue::new()
+                .key("i18n:stats.lastPush")
+                .value(last_push)
+                .into(),
+            KeyValue::new()
+                .key("i18n:stats.lastStatus")
+                .value(status)
+                .into(),
+        ])
+        .into()
 }

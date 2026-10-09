@@ -4,10 +4,7 @@ use portaki_sdk::capability;
 use portaki_sdk::prelude::EmptyArgs;
 use portaki_test_utils::MockContext;
 use serial_test::serial;
-use trmnl::{
-    get_config, get_status, push_now, render_host_main, render_host_status, update_config,
-    UpdateConfigArgs,
-};
+use trmnl::{get_config, get_status, push_now, render_host_main, update_config, UpdateConfigArgs};
 
 const WEBHOOK: &str = "https://usetrmnl.com/api/custom_plugins/7f1c-42";
 
@@ -136,8 +133,8 @@ fn the_status_card_admits_when_nothing_was_ever_sent() {
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
         .run(|ctx| {
-            let json = serde_json::to_string(&render_host_status(ctx)).expect("serialize");
-            assert!(json.contains("\"status\""));
+            // L'état vit dans le tiroir, sous le bouton d'envoi.
+            let json = serde_json::to_string(&render_host_main(ctx)).expect("serialize");
             assert!(json.contains("i18n:stats.never"));
             assert!(json.contains("i18n:stats.notConfigured"));
         });
