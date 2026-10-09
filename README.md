@@ -33,7 +33,7 @@ change it without republishing a module. `templates/` holds a starting point for
 
 | Trigger | Why |
 |---|---|
-| `updateConfig` | Saving settings repaints the screen, so Save is visibly what it claims to be |
+| `onConfigUpdated` | Saving settings repaints the screen, so Save is visibly what it claims to be |
 | `pushNow` | The button on the settings sheet |
 | `core.booking.confirmed` | A confirmed booking is the one moment a screen is certainly stale |
 | the scheduled sync | A countdown drawn yesterday is wrong this morning, with nothing happening to say so |
@@ -82,17 +82,21 @@ not name.
 
 | Key | Shape |
 |---|---|
-| `config` | `{ "webhook_url": "", "display_mode": "host_dashboard", "property_name_override": "" }` |
-| `push_state` | `{ "recent": [epoch seconds], "last_push_at": "…", "last_status": "ok" }` |
+| `config` | Legacy: `{ "webhook_url": "", "display_mode": "host_dashboard", "property_name_override": "" }` — read only while the platform sends no `moduleConfig`, imported once (`legacyConfig`), then deleted (`legacyConfigAdopted`) |
+| `push_state` | `{ "recent": [epoch seconds], "last_push_at": "…", "last_status": "ok", "failing_since": "…" }` |
+
+The settings are held by the platform (`#[portaki_sdk::config]`): `webhook_url` is a secret, in
+the vault; `display_mode` defaults to `guest_display`.
 
 ## Queries / commands
 
 | Operation | Kind | What it does |
 |---|---|---|
-| `updateConfig` | command | Validates and saves the settings, then pushes |
+| `onConfigUpdated` | command | Pushes after the host saves |
 | `pushNow` | command | Pushes now; returns `{ ok, status }` |
-| `getConfig` | query | The settings, as saved |
 | `getStatus` | query | Configured or not, plus the push ledger |
+| `publishReadiness` | query | A TRMNL Private Plugin URL, a name of 30 characters at most |
+| `timelineTasks` | query | « Écran TRMNL injoignable depuis 6 h » in À venir, until a push lands |
 
 ## Rate limit
 

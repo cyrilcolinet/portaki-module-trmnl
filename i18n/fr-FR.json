@@ -8,7 +8,7 @@
   "host.section.plugin.help": "Où partent les valeurs de ce logement.",
   "host.webhookUrl.label": "URL du webhook",
   "host.webhookUrl.placeholder": "https://usetrmnl.com/api/custom_plugins/…",
-  "host.webhookUrl.hint": "Copiez-la depuis la page du Private Plugin. Laissez vide pour arrêter les envois.",
+  "host.webhookUrl.hint": "L'URL webhook de votre Private Plugin TRMNL, gardée secrète. Laissez vide pour garder celle enregistrée.",
   "host.section.screen": "Écran",
   "host.section.screen.help": "Qui le lit, et sous quel nom.",
   "host.displayMode.label": "Mode d'affichage",
@@ -29,5 +29,10 @@
   "stats.status.rateLimited": "Limite horaire atteinte",
   "stats.status.idle": "Rien envoyé pour l'instant",
   "host.webhookUrl.invalid": "Collez l'URL webhook de votre Private Plugin TRMNL.",
-  "host.propertyName.tooLong": "30 caractères au maximum."
+  "host.propertyName.tooLong": "30 caractères au maximum.",
+  "catalog.host.tasks": "Écran TRMNL",
+  "task.unreachable.title": "Écran TRMNL injoignable depuis 6 h",
+  "task.unreachable.context": "Les envois échouent : vérifiez l'URL du webhook et l'appareil.",
+  "host.displayMode.label.host_dashboard": "Tableau de bord hôte",
+  "host.displayMode.label.guest_display": "Écran voyageur dans le logement"
 }

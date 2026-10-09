@@ -1,10 +1,10 @@
-//! Host configuration stored in KV (`config` key).
+//! Host configuration, held by the platform (`#[portaki_sdk::config]`).
+//!
+//! Before the platform held it, the module kept the same keys in KV (`config`): the generated
+//! `load` reads that blob while no `moduleConfig` is sent, and the platform imports it once
+//! (`legacyConfig`), so an install keeps pushing until the host publishes.
 
-use portaki_sdk::host;
-use portaki_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
-
-const CONFIG_KEY: &str = "config";
 
 /// What the screen is for: the host's own dashboard, or a display left in the property.
 ///
@@ -13,9 +13,10 @@ const CONFIG_KEY: &str = "config";
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DisplayMode {
-    /// The mode that needs no guest present, hence the default.
-    #[default]
     HostDashboard,
+    /// « Affichage logement », the spec's default (TRMNL §2.2). A saved mode is always stored,
+    /// so only an install that never saved reads this.
+    #[default]
     GuestDisplay,
 }
 
@@ -26,29 +27,25 @@ impl DisplayMode {
             DisplayMode::GuestDisplay => "guest_display",
         }
     }
-
-    /// Anything unknown reads as the host dashboard — the mode that needs no guest present.
-    pub fn from_wire(raw: &str) -> Self {
-        match raw.trim() {
-            "guest_display" => DisplayMode::GuestDisplay,
-            _ => DisplayMode::HostDashboard,
-        }
-    }
 }
 
+/// The keys are the names of the host form fields: the platform takes `updateConfig` itself.
+#[portaki_sdk::config]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModuleConfig {
-    /// The Private Plugin webhook URL, as TRMNL hands it over.
-    ///
-    /// Kept whole rather than reduced to its id: it is what the host copied, so it is what the
-    /// field must show back when they return to check it.
-    #[serde(default)]
+    /// The Private Plugin webhook URL, as TRMNL hands it over. The plugin id in it is the whole
+    /// credential: a secret, in the vault.
+    #[field(required, secret, label = "host.webhookUrl.label")]
     pub webhook_url: String,
-    #[serde(default)]
+    #[field(
+        kind = "select",
+        options = ["host_dashboard", "guest_display"],
+        label = "host.displayMode.label"
+    )]
     pub display_mode: DisplayMode,
     /// Shown instead of the Portaki property name — a screen in a hallway says "Chez Marie",
     /// not "Villa Pathologie — logement 2".
-    #[serde(default)]
+    #[field(label = "host.propertyName.label")]
     pub property_name_override: String,
 }
 
@@ -83,35 +80,22 @@ impl ModuleConfig {
     }
 }
 
-pub fn load_config() -> Result<ModuleConfig> {
-    let Some(bytes) = host::kv::get(CONFIG_KEY)? else {
-        return Ok(ModuleConfig::default());
-    };
-    serde_json::from_slice(&bytes)
-        .map_err(|error| PortakiError::Storage(format!("invalid config JSON: {error}")))
-}
-
-pub fn save_config(config: &ModuleConfig) -> Result<()> {
-    let bytes = serde_json::to_vec(config)
-        .map_err(|error| PortakiError::Storage(format!("config serialize: {error}")))?;
-    host::kv::set(CONFIG_KEY, &bytes, None)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// An install that never saved reads « Affichage logement »; a saved mode stays.
     #[test]
-    fn unknown_display_modes_fall_back_to_the_host_dashboard() {
+    fn the_mode_defaults_to_the_guest_display_and_a_saved_one_stays() {
         assert_eq!(
-            DisplayMode::from_wire("guest_display"),
+            ModuleConfig::default().display_mode,
             DisplayMode::GuestDisplay
         );
-        assert_eq!(
-            DisplayMode::from_wire(" host_dashboard "),
-            DisplayMode::HostDashboard
-        );
-        assert_eq!(DisplayMode::from_wire("kiosk"), DisplayMode::HostDashboard);
+        let blank: ModuleConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(blank.display_mode, DisplayMode::GuestDisplay);
+        let saved: ModuleConfig =
+            serde_json::from_str(r#"{"display_mode":"host_dashboard"}"#).unwrap();
+        assert_eq!(saved.display_mode, DisplayMode::HostDashboard);
     }
 
     #[test]

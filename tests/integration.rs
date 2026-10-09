@@ -4,48 +4,50 @@ use portaki_sdk::capability;
 use portaki_sdk::prelude::EmptyArgs;
 use portaki_test_utils::MockContext;
 use serial_test::serial;
-use trmnl::{get_config, get_status, push_now, render_host_main, update_config, UpdateConfigArgs};
+use trmnl::{
+    get_status, on_config_updated, push_now, render_host_main, ConfigUpdatedArgs, DisplayMode,
+    ModuleConfig,
+};
 
 const WEBHOOK: &str = "https://usetrmnl.com/api/custom_plugins/7f1c-42";
 
-fn configured() -> UpdateConfigArgs {
-    UpdateConfigArgs {
+fn configured() -> ModuleConfig {
+    ModuleConfig {
         webhook_url: WEBHOOK.to_string(),
-        display_mode: "guest_display".to_string(),
+        display_mode: DisplayMode::GuestDisplay,
         property_name_override: "Chez Marie".to_string(),
     }
 }
 
-#[test]
-#[serial]
-fn saving_the_settings_makes_them_readable_again() {
-    MockContext::host()
-        .with_capabilities(&[capability::core::STORAGE])
-        .with_connector_response("trmnl", "push", "{}")
-        .run(|ctx| {
-            update_config(ctx.clone(), configured()).expect("updateConfig");
-
-            let config = get_config(ctx).expect("getConfig");
-            assert_eq!(config.webhook_url, WEBHOOK);
-            assert_eq!(config.display_mode.as_str(), "guest_display");
-            assert_eq!(config.property_name_override, "Chez Marie");
-        });
+/// What the platform sends after the host saves.
+fn saved(ctx: &portaki_sdk::context::Context) {
+    on_config_updated(ctx.clone(), ConfigUpdatedArgs::default()).expect("onConfigUpdated");
 }
 
+/// Before the platform holds the config, the old KV blob is read: an install keeps pushing,
+/// and the mode it saved stays.
 #[test]
 #[serial]
-fn a_webhook_from_somewhere_else_is_refused_before_it_is_stored() {
+fn an_install_saved_in_kv_keeps_its_settings_until_the_platform_holds_them() {
+    let legacy = br#"{"webhook_url":"https://usetrmnl.com/api/custom_plugins/7f1c-42","display_mode":"host_dashboard","property_name_override":""}"#;
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
+        .with_kv("config", legacy.to_vec())
         .run(|ctx| {
-            let args = UpdateConfigArgs {
-                webhook_url: "https://example.com/hook".to_string(),
-                ..UpdateConfigArgs::default()
-            };
-            update_config(ctx.clone(), args).expect_err("refused");
+            let status = get_status(ctx).expect("getStatus");
+            assert!(status.configured);
+            assert_eq!(status.display_mode, "host_dashboard");
+        });
 
-            // Nothing was written: the module is still unconfigured.
-            assert!(!get_status(ctx).expect("getStatus").configured);
+    // Held by the platform, an empty config is empty: the KV is no longer read.
+    MockContext::host()
+        .with_capabilities(&[capability::core::STORAGE])
+        .with_kv("config", legacy.to_vec())
+        .with_config(&serde_json::json!({}))
+        .run(|ctx| {
+            let status = get_status(ctx).expect("getStatus");
+            assert!(!status.configured);
+            assert_eq!(status.display_mode, "guest_display");
         });
 }
 
@@ -71,8 +73,9 @@ fn a_configured_push_reaches_the_connector_and_is_written_down() {
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
         .with_connector_response("trmnl", "push", r#"{"status":200}"#)
+        .with_config(&configured())
         .run(|ctx| {
-            update_config(ctx.clone(), configured()).expect("updateConfig");
+            saved(&ctx);
 
             let outcome = push_now(ctx.clone(), EmptyArgs::default()).expect("pushNow");
             assert!(outcome.ok, "{}", outcome.status);
@@ -92,8 +95,9 @@ fn the_hourly_budget_stops_the_twelfth_push() {
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
         .with_connector_response("trmnl", "push", "{}")
+        .with_config(&configured())
         .run(|ctx| {
-            update_config(ctx.clone(), configured()).expect("updateConfig"); // push 1
+            saved(&ctx); // push 1
             for _ in 0..10 {
                 assert!(
                     push_now(ctx.clone(), EmptyArgs::default())
@@ -115,13 +119,14 @@ fn the_settings_sheet_shows_the_saved_values_and_both_modes() {
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
         .with_connector_response("trmnl", "push", "{}")
+        .with_config(&configured())
         .run(|ctx| {
-            update_config(ctx.clone(), configured()).expect("updateConfig");
-
-            let surface = render_host_main(ctx);
+            let surface = render_host_main(ctx).expect("render");
             let json = serde_json::to_string(&surface).expect("serialize");
             assert!(json.contains("\"main\""));
-            assert!(json.contains(WEBHOOK));
+            assert!(json.contains("Chez Marie"));
+            // A secret is never sent back to the form.
+            assert!(!json.contains(WEBHOOK));
             assert!(json.contains("host_dashboard") && json.contains("guest_display"));
             assert!(json.contains("i18n:host.pushNow"));
         });
@@ -134,7 +139,8 @@ fn the_status_card_admits_when_nothing_was_ever_sent() {
         .with_capabilities(&[capability::core::STORAGE])
         .run(|ctx| {
             // L'état vit dans le tiroir, sous le bouton d'envoi.
-            let json = serde_json::to_string(&render_host_main(ctx)).expect("serialize");
+            let json =
+                serde_json::to_string(&render_host_main(ctx).expect("render")).expect("serialize");
             assert!(json.contains("i18n:stats.never"));
             assert!(json.contains("i18n:stats.notConfigured"));
         });
@@ -147,8 +153,9 @@ fn a_refused_push_is_recorded_without_spending_the_budget() {
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
         .with_connector_error("trmnl", "push", "connector_credential_missing")
+        .with_config(&configured())
         .run_with(|ctx, host| {
-            update_config(ctx.clone(), configured()).expect("updateConfig");
+            saved(&ctx);
 
             let outcome = push_now(ctx.clone(), EmptyArgs::default()).expect("pushNow");
             assert!(!outcome.ok);

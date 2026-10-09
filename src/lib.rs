@@ -15,15 +15,17 @@ mod ids;
 mod payload;
 mod push;
 mod queries;
+mod tasks;
 
-pub use commands::{push_now, update_config, UpdateConfigArgs};
+pub use commands::{on_config_updated, push_now, ConfigUpdatedArgs};
 pub use config::{DisplayMode, ModuleConfig};
 pub use events::on_booking_confirmed;
 pub use host::render_host_main;
 pub use ids::module_id;
 pub use payload::{build_payload, StaySnapshot};
 pub use push::{plugin_id_from_webhook_url, PushState};
-pub use queries::{get_config, get_status};
+pub use queries::get_status;
+pub use tasks::timeline_tasks;
 
 use portaki_sdk::prelude::*;
 

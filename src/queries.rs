@@ -3,14 +3,8 @@
 use portaki_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{load_config, ModuleConfig};
+use crate::config::ModuleConfig;
 use crate::push::{load_state, PushState};
-
-/// The settings, as saved.
-#[portaki_sdk::query(name = "getConfig")]
-pub fn get_config(_ctx: Context) -> Result<ModuleConfig> {
-    load_config()
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleStatus {
@@ -23,8 +17,8 @@ pub struct ModuleStatus {
 
 /// Configured or not, and what the last push did — the stats card reads this.
 #[portaki_sdk::query(name = "getStatus")]
-pub fn get_status(_ctx: Context) -> Result<ModuleStatus> {
-    let config = load_config()?;
+pub fn get_status(ctx: Context) -> Result<ModuleStatus> {
+    let config = ModuleConfig::load(&ctx)?;
     Ok(ModuleStatus {
         configured: config.is_ready(),
         display_mode: config.display_mode.as_str().to_string(),
@@ -36,11 +30,11 @@ pub fn get_status(_ctx: Context) -> Result<ModuleStatus> {
 /// affiché trop long — chacun sur son champ (`config.<clé>`).
 #[portaki_sdk::query(name = "publishReadiness")]
 pub fn publish_readiness(
-    _ctx: Context,
+    ctx: Context,
 ) -> Result<portaki_sdk::contracts::publish::PublishReadiness> {
     use portaki_sdk::contracts::publish::{PublishCheck, PublishLevel, PublishReadiness};
     let bundle = crate::i18n::text;
-    let items = load_config()?
+    let items = ModuleConfig::load(&ctx)?
         .problems()
         .into_iter()
         .map(|(field, key)| PublishCheck {

@@ -8,7 +8,7 @@
   "host.section.plugin.help": "Where this property's values are sent.",
   "host.webhookUrl.label": "Webhook URL",
   "host.webhookUrl.placeholder": "https://usetrmnl.com/api/custom_plugins/…",
-  "host.webhookUrl.hint": "Copy it from the Private Plugin page. Leave it empty to stop sending.",
+  "host.webhookUrl.hint": "The webhook URL of your TRMNL Private Plugin, kept secret. Leave blank to keep the saved one.",
   "host.section.screen": "Screen",
   "host.section.screen.help": "Who reads it, and under which name.",
   "host.displayMode.label": "Display mode",
@@ -29,5 +29,10 @@
   "stats.status.rateLimited": "Hourly limit reached",
   "stats.status.idle": "Nothing sent yet",
   "host.webhookUrl.invalid": "Paste the webhook URL of your TRMNL Private Plugin.",
-  "host.propertyName.tooLong": "30 characters at most."
+  "host.propertyName.tooLong": "30 characters at most.",
+  "catalog.host.tasks": "TRMNL screen",
+  "task.unreachable.title": "TRMNL screen unreachable for 6 h",
+  "task.unreachable.context": "Pushes are failing: check the webhook URL and the device.",
+  "host.displayMode.label.host_dashboard": "Host dashboard",
+  "host.displayMode.label.guest_display": "In-property guest display"
 }
