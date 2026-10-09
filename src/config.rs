@@ -52,7 +52,31 @@ pub struct ModuleConfig {
     pub property_name_override: String,
 }
 
+/// Le nom affiché, au plus (spec TRMNL §2.2) : l'en-tête d'un écran e-ink est étroit.
+pub const DISPLAY_NAME_MAX: usize = 30;
+
 impl ModuleConfig {
+    /// Ce qui ne va pas, champ par champ — sous le champ dans le tiroir, et dans
+    /// `publishReadiness` (spec TRMNL §2) : une URL de Private Plugin TRMNL en https, un nom
+    /// affiché de 30 caractères au plus.
+    pub fn problems(&self) -> Vec<(&'static str, &'static str)> {
+        let mut problems = Vec::new();
+        let url = self.webhook_url.trim();
+        let plugin = url.starts_with("https://")
+            && url
+                .strip_prefix("https://")
+                .and_then(|rest| rest.split('/').next())
+                .is_some_and(|host| host == "usetrmnl.com" || host.ends_with(".usetrmnl.com"))
+            && crate::push::plugin_id_from_webhook_url(url).is_some();
+        if !plugin {
+            problems.push(("webhook_url", "host.webhookUrl.invalid"));
+        }
+        if self.property_name_override.trim().chars().count() > DISPLAY_NAME_MAX {
+            problems.push(("property_name_override", "host.propertyName.tooLong"));
+        }
+        problems
+    }
+
     /// Whether a push can even be attempted.
     pub fn is_ready(&self) -> bool {
         !self.webhook_url.trim().is_empty()
@@ -98,5 +122,39 @@ mod tests {
             ..ModuleConfig::default()
         }
         .is_ready());
+    }
+
+    /// Une URL de Private Plugin TRMNL en https, un nom de 30 caractères au plus.
+    #[test]
+    fn problems_follow_the_spec() {
+        let with = |url: &str, name: &str| ModuleConfig {
+            webhook_url: url.into(),
+            property_name_override: name.into(),
+            ..ModuleConfig::default()
+        };
+        let fields = |config: ModuleConfig| -> Vec<&'static str> {
+            config.problems().into_iter().map(|(f, _)| f).collect()
+        };
+        assert!(fields(with(
+            "https://usetrmnl.com/api/custom_plugins/7f1c",
+            "Chez Marie"
+        ))
+        .is_empty());
+        assert_eq!(fields(with("", "")), ["webhook_url"]);
+        assert_eq!(
+            fields(with("http://usetrmnl.com/api/custom_plugins/7f1c", "")),
+            ["webhook_url"]
+        );
+        assert_eq!(
+            fields(with("https://evil.example/api/custom_plugins/7f1c", "")),
+            ["webhook_url"]
+        );
+        assert_eq!(
+            fields(with(
+                "https://usetrmnl.com/api/custom_plugins/7f1c",
+                &"x".repeat(31)
+            )),
+            ["property_name_override"]
+        );
     }
 }

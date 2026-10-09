@@ -37,15 +37,6 @@
         "en": "TRMNL screen"
       },
       "icon": "Monitor"
-    },
-    {
-      "type": "property-stats-card",
-      "pathSegment": "status",
-      "label": {
-        "fr": "Écran TRMNL",
-        "en": "TRMNL screen"
-      },
-      "icon": "Monitor"
     }
   ]
 }
