@@ -4,7 +4,7 @@ Shows the current stay on a [TRMNL](https://usetrmnl.com) e-ink screen — eithe
 dashboard for the host, or as a display left in the property for the guest.
 
 A Portaki module compiled to wasm, running on the [Portaki module SDK](https://github.com/PortakiApp/portaki-sdk)
-3.2.0. It is a rewrite of the original TypeScript module, which lived in `PortakiApp/portaki-modules-old`.
+10.8.0. It is a rewrite of the original TypeScript module, which lived in `PortakiApp/portaki-modules-old`.
 
 ## Module id
 
@@ -26,15 +26,15 @@ change it without republishing a module. `templates/` holds a starting point for
 
 | Surface | Type | What it is |
 |---|---|---|
-| `main` | `property-module-sheet` | Webhook URL, display mode, name on screen, and a "send now" button |
-| `status` | `property-stats-card` | Mode, last send, and what it returned |
+| `main` | `property-module-sheet` | Two cards: Connexion (webhook URL, last successful send) and Affichage (display mode, name on screen) |
+| `tasks` | `workspace-timeline-task` | "TRMNL screen unreachable for 6 h" |
 
 ## When it sends
 
 | Trigger | Why |
 |---|---|
 | `onConfigUpdated` | Saving settings repaints the screen, so Save is visibly what it claims to be |
-| `pushNow` | The button on the settings sheet |
+| `pushNow` | The scheduled sync's host action |
 | `core.booking.confirmed` | A confirmed booking is the one moment a screen is certainly stale |
 | the scheduled sync | A countdown drawn yesterday is wrong this morning, with nothing happening to say so |
 

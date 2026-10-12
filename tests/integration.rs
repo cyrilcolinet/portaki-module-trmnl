@@ -128,21 +128,36 @@ fn the_settings_sheet_shows_the_saved_values_and_both_modes() {
             // A secret is never sent back to the form.
             assert!(!json.contains(WEBHOOK));
             assert!(json.contains("host_dashboard") && json.contains("guest_display"));
-            assert!(json.contains("i18n:host.pushNow"));
+            // La planche : deux cartes, le mode en segmenté.
+            assert!(json.contains("i18n:host.section.connection"));
+            assert!(json.contains("i18n:host.section.display"));
+            assert!(json.contains("\"segmented\""));
         });
 }
 
+/// « Dernier envoi » n'apparaît qu'après un envoi qui a abouti, jamais sur une tentative.
 #[test]
 #[serial]
-fn the_status_card_admits_when_nothing_was_ever_sent() {
+fn the_last_send_line_waits_for_a_push_that_landed() {
+    let rendered = |ctx| serde_json::to_string(&render_host_main(ctx).expect("render")).unwrap();
     MockContext::host()
         .with_capabilities(&[capability::core::STORAGE])
+        .with_connector_error("trmnl", "push", "http_502")
+        .with_config(&configured())
         .run(|ctx| {
-            // L'état vit dans le tiroir, sous le bouton d'envoi.
-            let json =
-                serde_json::to_string(&render_host_main(ctx).expect("render")).expect("serialize");
-            assert!(json.contains("i18n:stats.never"));
-            assert!(json.contains("i18n:stats.notConfigured"));
+            assert!(!rendered(ctx.clone()).contains("i18n:stats.lastPush"));
+            saved(&ctx);
+            assert!(!rendered(ctx).contains("i18n:stats.lastPush"));
+        });
+    MockContext::host()
+        .with_capabilities(&[capability::core::STORAGE])
+        .with_connector_response("trmnl", "push", "{}")
+        .with_config(&configured())
+        .run(|ctx| {
+            saved(&ctx);
+            let json = rendered(ctx);
+            assert!(json.contains("i18n:stats.lastPush"));
+            assert!(json.contains(" UTC"));
         });
 }
 

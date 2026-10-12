@@ -1,15 +1,17 @@
-//! Host dashboard surfaces — the settings sheet and the status card.
+//! Host dashboard surface — the settings drawer (spec TRMNL §2, planche validée).
+//!
+//! Deux cartes, Connexion puis Affichage. Le chrome du tiroir (titre, interrupteur, Publier)
+//! appartient au dashboard ; « Publier » déclenche `onConfigUpdated`, qui pousse l'écran.
 
+use chrono::DateTime;
 use portaki_sdk::prelude::*;
 use portaki_sdk::sdui::primitives::{
-    Button, Card, Field, FieldHint, Form, InfoBanner, KeyValue, Page, SecretInput, Select, Stack,
-    TextInput,
+    Card, ChoiceList, Field, FieldHint, Form, KeyValue, Page, SecretInput, Stack, TextInput,
 };
 use portaki_sdk::sdui::surface::Surface;
 
 use crate::config::{DisplayMode, ModuleConfig};
-use crate::ids;
-use crate::push::load_state;
+use crate::push::{load_state, PushState};
 
 // « Écran TRMNL injoignable depuis 6 h » dans À venir : `crate::tasks`.
 #[portaki_sdk::nav(
@@ -34,134 +36,114 @@ pub fn render_host_main(ctx: HostContext) -> Result<Surface> {
             _ => field,
         }
     };
-    let push_action = ids::module_id().command_empty(crate::commands::PUSH_NOW);
 
-    let form_children: Vec<Component> = vec![
-        InfoBanner::new()
-            .title("i18n:host.banner.title")
-            .message("i18n:host.banner.message")
-            .into(),
-        Card::new()
-            .title("i18n:host.section.plugin")
-            .subtitle("i18n:host.section.plugin.help")
-            .icon(IconName::Link)
-            .children(vec![
-                named("webhook_url")
-                    .label("i18n:host.webhookUrl.label")
-                    .child(
-                        SecretInput::new()
-                            .name("webhook_url")
-                            // Never sent back: blank keeps the saved URL.
-                            .value(String::new())
-                            .placeholder("i18n:host.webhookUrl.placeholder"),
-                    )
-                    .into(),
-                FieldHint::new().text("i18n:host.webhookUrl.hint").into(),
-            ])
-            .into(),
-        Card::new()
-            .title("i18n:host.section.screen")
-            .subtitle("i18n:host.section.screen.help")
-            .icon(IconName::Grid)
-            .children(vec![
-                Field::new()
+    let mut connection: Vec<Component> = vec![named("webhook_url")
+        .label("i18n:host.webhookUrl.label")
+        .child(
+            SecretInput::new()
+                .name("webhook_url")
+                // Never sent back: blank keeps the saved URL.
+                .value(String::new())
+                .placeholder("i18n:host.webhookUrl.placeholder"),
+        )
+        .child(FieldHint::new().text("i18n:host.webhookUrl.hint"))
+        .into()];
+    // Un `KeyValue` et non un champ : un champ nommé partirait avec le formulaire.
+    if let Some(at) = last_sent(&load_state().unwrap_or_default()) {
+        connection.push(
+            KeyValue::new()
+                .key("i18n:stats.lastPush")
+                .value(at)
+                .mono(true)
+                .into(),
+        );
+    }
+
+    let display: Vec<Component> = vec![
+        Field::new()
+            .name("display_mode")
+            .label("i18n:host.displayMode.label")
+            .child(
+                ChoiceList::new()
                     .name("display_mode")
-                    .label("i18n:host.displayMode.label")
-                    .child(
-                        Select::new()
-                            .name("display_mode")
-                            .options(vec![
-                                ChoiceOption::new(
-                                    DisplayMode::HostDashboard.as_str(),
-                                    "i18n:host.displayMode.hostDashboard",
-                                ),
-                                ChoiceOption::new(
-                                    DisplayMode::GuestDisplay.as_str(),
-                                    "i18n:host.displayMode.guestDisplay",
-                                ),
-                            ])
-                            .value(config.display_mode.as_str()),
-                    )
-                    .into(),
-                named("property_name_override")
-                    .label("i18n:host.propertyName.label")
-                    .child(
-                        TextInput::new()
-                            .name("property_name_override")
-                            .value(config.property_name_override.clone())
-                            .placeholder("i18n:host.propertyName.placeholder"),
-                    )
-                    .into(),
-            ])
+                    .layout(ChoiceListLayout::Segmented)
+                    .choices(vec![
+                        ChoiceOption::new(
+                            DisplayMode::HostDashboard.as_str(),
+                            "i18n:host.displayMode.hostDashboard",
+                        ),
+                        ChoiceOption::new(
+                            DisplayMode::GuestDisplay.as_str(),
+                            "i18n:host.displayMode.guestDisplay",
+                        ),
+                    ])
+                    .value(config.display_mode.as_str()),
+            )
+            .child(FieldHint::new().text("i18n:host.displayMode.hint"))
+            .into(),
+        named("property_name_override")
+            .label("i18n:host.propertyName.label")
+            .required(false)
+            .child(
+                TextInput::new()
+                    .name("property_name_override")
+                    .value(config.property_name_override.clone())
+                    .placeholder("i18n:host.propertyName.placeholder"),
+            )
+            .child(FieldHint::new().text("i18n:host.propertyName.hint"))
             .into(),
     ];
 
-    let mut children = form_children;
-    // The button sits outside no form of its own: the sheet merges the fields above at click
-    // time, so "send now" pushes what is on screen rather than what was last saved.
-    children.push(
-        Stack::new()
-            .direction(StackDirection::Horizontal)
-            .gap(10.0)
-            .children(vec![Button::new()
-                .label("i18n:host.pushNow")
-                .variant(ButtonVariant::Outline)
-                .action(push_action)
-                .into()])
+    let cards: Vec<Component> = vec![
+        Card::new()
+            .title("i18n:host.section.connection")
+            .children(connection)
             .into(),
-    );
-    children.push(FieldHint::new().text("i18n:host.main.help").into());
-    children.push(status_card(&config));
+        Card::new()
+            .title("i18n:host.section.display")
+            .children(display)
+            .into(),
+    ];
 
     // No Page title / Save — the modules sheet owns chrome + footer Save.
-    Ok(Surface::new(
-        Page::new().child(Form::new().child(Stack::new().gap(16.0).children(children))),
+    Ok(
+        Surface::new(Page::new().child(Form::new().child(Stack::new().gap(16.0).children(cards))))
+            .with_id(MAIN),
     )
-    .with_id(MAIN))
 }
 
-/// L'état de l'écran, dans le tiroir : s'il est alimenté, et ce qu'a donné le dernier envoi.
-///
-/// Dans le tiroir et non en tuile de statistiques : la spec n'en prévoit pas pour TRMNL, et
-/// c'est là que l'hôte vient vérifier après « Envoyer maintenant ». Des `KeyValue` et non des
-/// champs : un champ nommé partirait avec le formulaire à l'enregistrement.
-pub fn status_card(config: &ModuleConfig) -> Component {
-    let state = load_state().unwrap_or_default();
+/// L'heure du dernier envoi qui a abouti, en UTC (pas de base de fuseaux en wasm). Rien tant
+/// qu'aucun n'a abouti : une tentative refusée n'est pas un envoi.
+fn last_sent(state: &PushState) -> Option<String> {
+    let raw = state.last_ok_at.clone().or_else(|| {
+        // Un registre d'avant `last_ok_at` : la dernière tentative compte si elle a abouti.
+        (state.last_status.as_deref() == Some("ok"))
+            .then(|| state.last_push_at.clone())
+            .flatten()
+    })?;
+    let at = DateTime::parse_from_rfc3339(raw.trim()).ok()?;
+    Some(at.format("%Y-%m-%d %H:%M UTC").to_string())
+}
 
-    let mode = if config.is_ready() {
-        match config.display_mode {
-            DisplayMode::HostDashboard => "i18n:host.displayMode.hostDashboard",
-            DisplayMode::GuestDisplay => "i18n:host.displayMode.guestDisplay",
-        }
-        .to_string()
-    } else {
-        "i18n:stats.notConfigured".to_string()
-    };
-    let last_push = state
-        .last_push_at
-        .filter(|at| !at.trim().is_empty())
-        .unwrap_or_else(|| "i18n:stats.never".to_string());
-    let status = match state.last_status.as_deref() {
-        Some("ok") => "i18n:stats.status.ok".to_string(),
-        Some("rate_limited") => "i18n:stats.status.rateLimited".to_string(),
-        Some("not_configured") | None => "i18n:stats.status.idle".to_string(),
-        Some(other) => other.to_string(),
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    Card::new()
-        .title("i18n:stats.title")
-        .subtitle("i18n:stats.subtitle")
-        .icon(IconName::Gauge)
-        .children(vec![
-            KeyValue::new().key("i18n:stats.mode").value(mode).into(),
-            KeyValue::new()
-                .key("i18n:stats.lastPush")
-                .value(last_push)
-                .into(),
-            KeyValue::new()
-                .key("i18n:stats.lastStatus")
-                .value(status)
-                .into(),
-        ])
-        .into()
+    #[test]
+    fn only_a_push_that_landed_counts_as_the_last_send() {
+        let mut state = PushState::default();
+        assert_eq!(last_sent(&state), None);
+
+        state.last_push_at = Some("2026-10-12T14:00:00+00:00".into());
+        state.last_status = Some("http_502".into());
+        assert_eq!(last_sent(&state), None, "a failed attempt is not a send");
+
+        // A ledger written before `last_ok_at` existed.
+        state.last_status = Some("ok".into());
+        assert_eq!(last_sent(&state).as_deref(), Some("2026-10-12 14:00 UTC"));
+
+        state.last_ok_at = Some("2026-10-12T09:30:00+00:00".into());
+        state.last_status = Some("rate_limited".into());
+        assert_eq!(last_sent(&state).as_deref(), Some("2026-10-12 09:30 UTC"));
+    }
 }
