@@ -35,6 +35,9 @@ pub struct PushState {
     /// every attempt, so it cannot say how long the screen has been out of reach.
     #[serde(default)]
     pub failing_since: Option<String>,
+    /// The last push TRMNL took — « Dernier envoi » in the drawer.
+    #[serde(default)]
+    pub last_ok_at: Option<String>,
 }
 
 impl PushState {
@@ -52,7 +55,11 @@ impl PushState {
         self.last_push_at = Some(now.to_rfc3339());
         self.last_status = Some(status.to_string());
         match status {
-            "ok" | "not_configured" => self.failing_since = None,
+            "ok" => {
+                self.failing_since = None;
+                self.last_ok_at = Some(now.to_rfc3339());
+            }
+            "not_configured" => self.failing_since = None,
             // Held back by this module, not refused by TRMNL: says nothing about the screen.
             "rate_limited" => {}
             _ => {
