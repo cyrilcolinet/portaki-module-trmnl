@@ -39,9 +39,8 @@ change it without republishing a module. `templates/` holds a starting point for
 | the scheduled sync | A countdown drawn yesterday is wrong this morning, with nothing happening to say so |
 
 The schedule is `hostScheduledSync: { hostAction: "pushNow" }` — the platform runs the module's
-own command, on its cadence and on demand. It reaches a wasm module only where the platform
-dispatches a host action as a command ([portaki-platform#294](https://github.com/PortakiApp/portaki-platform/issues/294));
-before that, the declaration is inert rather than wrong.
+own command, on its cadence and on demand (dispatched as a command since
+[portaki-platform#294](https://github.com/PortakiApp/portaki-platform/issues/294)).
 
 ## Merge variables
 
